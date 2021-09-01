@@ -1,19 +1,20 @@
-import "./index.css";
-import React, { useEffect, useState } from "react";
+import './index.css';
 
-import PersonForm from "../src/components/PersonForm";
+import React, {useEffect, useState} from 'react';
 
-import Filter from "./components/Filter";
-import Persons from "./components/Persons";
-import SuccessNotification from "./components/SuccessNotification";
-import PhonebookServices from "./services/phonebook";
-import ErrorNotification from "./components/ErrorNotification";
+import PersonForm from '../src/components/PersonForm';
+
+import ErrorNotification from './components/ErrorNotification';
+import Filter from './components/Filter';
+import Persons from './components/Persons';
+import SuccessNotification from './components/SuccessNotification';
+import PhonebookServices from './services/phonebook';
 
 const App = () => {
   const [persons, setPersons] = useState([]);
-  const [newName, setNewName] = useState("");
-  const [newPhone, setNewPhone] = useState("");
-  const [nameFilter, setNameFilter] = useState("");
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
   const [errorMessage, setErrorMessage] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
@@ -38,12 +39,12 @@ const App = () => {
   const addPerson = event => {
     event.preventDefault();
     let hasName = persons.some(
-      person => person["name"].toLowerCase() === newName.toLowerCase()
+      person => person['name'].toLowerCase() === newName.toLowerCase()
     );
 
     if (hasName) {
       const selectedPerson = persons.find(
-        person => person["name"].toLowerCase() === newName.toLowerCase()
+        person => person['name'].toLowerCase() === newName.toLowerCase()
       );
       const result = window.confirm(
         `${newName} is already added to phonebook, replace the old number with a new one?`
@@ -56,17 +57,15 @@ const App = () => {
             setPersons(
               persons.map(person => (person.id !== id ? person : response))
             );
-            setNewName("");
-            setNewPhone("");
+            setNewName('');
+            setNewPhone('');
             setSuccessMessage(`Updated ${response.name}`);
             setTimeout(() => {
               setSuccessMessage(null);
             }, 5000);
           })
           .catch(error => {
-            setErrorMessage(
-              `An error has occured. Please try again later.`
-            );
+            setErrorMessage(error.response.data.error);
             setTimeout(() => {
               setErrorMessage(null);
             }, 5000);
@@ -77,11 +76,16 @@ const App = () => {
 
       PhonebookServices.create(personObject).then(response => {
         setPersons(persons.concat(response));
-        setNewName("");
-        setNewPhone("");
+        setNewName('');
+        setNewPhone('');
         setSuccessMessage(`Added ${response.name}`);
         setTimeout(() => {
           setSuccessMessage(null);
+        }, 5000);
+      }).catch(error => {
+        setErrorMessage(error.response.data.error);
+        setTimeout(() => {
+          setErrorMessage(null);
         }, 5000);
       });
     }
