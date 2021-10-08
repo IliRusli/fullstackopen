@@ -10,57 +10,6 @@ const helper = require('./test_helper');
 const bcrypt = require('bcrypt');
 const User = require('../models/user');
 
-describe('when there is initially one user in db', () => {
-  beforeEach(async () => {
-    await User.deleteMany({});
-
-    const passwordHash = await bcrypt.hash('sekret', 10);
-    const user = new User({ username: 'root', passwordHash });
-
-    await user.save();
-  });
-
-  test('creation succeeds with a fresh username', async () => {
-    const usersAtStart = await helper.usersInDb();
-
-    const newUser = {
-      username: 'mluukkai',
-      name: 'Matti Luukkainen',
-      password: 'salainen',
-    };
-
-    await api
-      .post('/api/users')
-      .send(newUser)
-      .expect(200)
-      .expect('Content-Type', /application\/json/);
-
-    const usersAtEnd = await helper.usersInDb();
-    expect(usersAtEnd).toHaveLength(usersAtStart.length + 1);
-
-    const usernames = usersAtEnd.map(u => u.username);
-    expect(usernames).toContain(newUser.username);
-  });
-
-  test('creation failed with missing username', async () => {
-    const usersAtStart = await helper.usersInDb();
-
-    const newUser = {
-      name: 'Matti Luukkainen',
-      password: 'salainen',
-    };
-
-    await api
-      .post('/api/users')
-      .send(newUser)
-      .expect(400)
-      .expect('Content-Type', /application\/json/);
-
-    const usersAtEnd = await helper.usersInDb();
-    expect(usersAtEnd).toHaveLength(usersAtStart.length);
-  });
-});
-
 beforeEach(async () => {
   await Blog.deleteMany({});
   let blogObject = new Blog(helper.initialBlogs[0]);
@@ -112,8 +61,6 @@ describe('viewing a specific blog', () => {
 
   test('fails with statuscode 404 if blog does not exist', async () => {
     const validNonexistingId = await helper.nonExistingId();
-    console.log({ validNonexistingId });
-
     await api.get(`/api/blogs/${validNonexistingId}`).expect(404);
   });
 
@@ -125,6 +72,23 @@ describe('viewing a specific blog', () => {
 });
 
 describe('addition of a new blog', () => {
+  var token = null;
+
+  beforeEach(done => {
+    const user = {
+      username: 'root',
+      password: 'sekret',
+    };
+
+    api
+      .post('/api/login')
+      .send(user)
+      .end(function(err, res) {
+        token = res.body.token;
+        done();
+      });
+  });
+
   test('succeeds with valid data', async () => {
     const newBlog = {
       title: 'Learn React',
@@ -135,6 +99,7 @@ describe('addition of a new blog', () => {
 
     await api
       .post('/api/blogs')
+      .set({ Authorization: `Bearer ${token}` })
       .send(newBlog)
       .expect(201)
       .expect('Content-Type', /application\/json/);
@@ -155,6 +120,7 @@ describe('addition of a new blog', () => {
 
     await api
       .post('/api/blogs')
+      .set({ Authorization: `Bearer ${token}` })
       .send(newBlog)
       .expect(400)
       .expect('Content-Type', /application\/json/);
@@ -176,6 +142,7 @@ describe('addition of a new blog', () => {
 
     await api
       .post('/api/blogs')
+      .set({ Authorization: `Bearer ${token}` })
       .send(checkedPayload)
       .expect(201)
       .expect('Content-Type', /application\/json/);
@@ -186,19 +153,114 @@ describe('addition of a new blog', () => {
 });
 
 describe('deletion of a blog', () => {
+  var token = null;
+
+  beforeEach(done => {
+    const user = {
+      username: 'root',
+      password: 'sekret',
+    };
+
+    api
+      .post('/api/login')
+      .send(user)
+      .end((err, res) => {
+        token = res.body.token;
+        const newBlog = {
+          title: 'Learn React',
+          author: 'Michael X',
+          url: 'https://reactpatterns.com/',
+          likes: 9,
+        };
+
+        api
+          .post('/api/blogs')
+          .set({ Authorization: `Bearer ${token}` })
+          .send(newBlog)
+          .expect(201)
+          .expect('Content-Type', /application\/json/)
+          .end(done);
+      });
+  });
+
   test('succeeds with status code 204 if id is valid', async () => {
     const blogsAtStart = await helper.blogsInDb();
-    const blogToDelete = blogsAtStart[0];
+    const blogToDelete = blogsAtStart[2];
 
-    await api.delete(`/api/blogs/${blogToDelete.id}`).expect(204);
+    await api.delete(`/api/blogs/${blogToDelete.id}`).set({
+      Authorization: `Bearer ${token}`,
+    });
+    expect(204);
 
     const blogsAtEnd = await helper.blogsInDb();
 
-    expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length - 1);
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length - 1);
 
     const authors = blogsAtEnd.map(r => r.author);
 
     expect(authors).not.toContain(blogToDelete.author);
+  });
+
+  test('fails with status code 401 if auth token is missing', async () => {
+    const blogsAtStart = await helper.blogsInDb();
+    const blogToDelete = blogsAtStart[2];
+
+    await api.delete(`/api/blogs/${blogToDelete.id}`).expect(401);
+
+    const blogsAtEnd = await helper.blogsInDb();
+
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length);
+  });
+});
+
+describe('when there is initially one user in db', () => {
+  beforeEach(async () => {
+    await User.deleteMany({});
+
+    const passwordHash = await bcrypt.hash('sekret', 10);
+    const user = new User({ username: 'root', passwordHash });
+
+    await user.save();
+  });
+
+  test('creation succeeds with a fresh username', async () => {
+    const usersAtStart = await helper.usersInDb();
+
+    const newUser = {
+      username: 'test1',
+      name: 'Test One',
+      password: 'password',
+    };
+
+    await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(200)
+      .expect('Content-Type', /application\/json/);
+
+    const usersAtEnd = await helper.usersInDb();
+    expect(usersAtEnd).toHaveLength(usersAtStart.length + 1);
+
+    const usernames = usersAtEnd.map(u => u.username);
+    expect(usernames).toContain(newUser.username);
+  });
+
+  test('creation failed with missing username', async () => {
+    const usersAtStart = await helper.usersInDb();
+
+    const newUser = {
+      name: 'Matti Luukkainen',
+      password: 'salainen',
+    };
+
+    await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(400)
+      .expect('Content-Type', /application\/json/);
+
+    const usersAtEnd = await helper.usersInDb();
+    expect(usersAtEnd).toHaveLength(usersAtStart.length);
   });
 });
 
