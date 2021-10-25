@@ -13,7 +13,7 @@ blogRouter.post('/', async (request, response, next) => {
   const blog = new Blog({
     title: body.title,
     author: body.author,
-    links: body.links,
+    url: body.url,
     likes: body.likes,
     user: user._id,
   });
@@ -49,6 +49,7 @@ blogRouter.put('/:id', (request, response, next) => {
   const body = request.body;
 
   const blog = {
+    user: body.user,
     title: body.title,
     author: body.author,
     url: body.url,
